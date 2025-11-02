@@ -1,1 +1,522 @@
-import React, { useState, useEffect } from 'react'; import { Trash2, Plus, Save } from 'lucide-react'; export default function SpiritTeamTracker() { const [teams, setTeams] = useState([]); const [currentTeam, setCurrentTeam] = useState({ name: '', primary: { name: '', slots: 1 }, supports: [] }); const [loading, setLoading] = useState(true); useEffect(() => { loadTeams(); }, []); useEffect(() => { if (!loading) { saveTeams(); } }, [teams, loading]); const loadTeams = async () => { try { const result = await window.storage.get('spirit-teams'); if (result && result.value) { setTeams(JSON.parse(result.value)); } } catch (error) { console.log('No saved teams found or error loading:', error); } setLoading(false); }; const saveTeams = async () => { try { await window.storage.set('spirit-teams', JSON.stringify(teams)); } catch (error) { console.error('Error saving teams:', error); } }; const addSupportSpirit = () => { if (currentTeam.supports.length < 3) { setCurrentTeam({ ...currentTeam, supports: [...currentTeam.supports, { name: '', slots: 1 }] }); } }; const removeSupportSpirit = (index) => { setCurrentTeam({ ...currentTeam, supports: currentTeam.supports.filter((_, i) => i !== index) }); }; const updatePrimary = (field, value) => { setCurrentTeam({ ...currentTeam, primary: { ...currentTeam.primary, [field]: value } }); }; const updateSupport = (index, field, value) => { const newSupports = [...currentTeam.supports]; newSupports[index] = { ...newSupports[index], [field]: value }; setCurrentTeam({ ...currentTeam, supports: newSupports }); }; const getTotalSlotsUsed = () => { return currentTeam.supports.reduce((sum, s) => sum + parseInt(s.slots), 0); }; const canAddSupport = () => { const slotsUsed = getTotalSlotsUsed(); return slotsUsed < currentTeam.primary.slots && currentTeam.supports.length < 3; }; const saveTeam = () => { if (currentTeam.primary.name && currentTeam.name) { setTeams([...teams, { ...currentTeam, id: Date.now() }]); setCurrentTeam({ name: '', primary: { name: '', slots: 1 }, supports: [] }); } }; const deleteTeam = (id) => { setTeams(teams.filter(t => t.id !== id)); }; const SlotIndicator = ({ total, used }) => ( <div className="flex gap-1"> {[...Array(total)].map((_, i) => ( <div key={i} className={`w-6 h-6 rounded ${ i < used ? 'bg-blue-500' : 'bg-gray-300' }`} /> ))} </div> ); if (loading) { return ( <div className="min-h-screen bg-gradient-to-br from-red-500 via-orange-500 to-yellow-500 flex items-center justify-center"> <div className="text-white text-2xl font-bold">Loading...</div> </div> ); } return ( <div className="min-h-screen bg-gradient-to-br from-red-500 via-orange-500 to-yellow-500 p-4"> <div className="max-w-md mx-auto"> <h1 className="text-3xl font-bold text-white text-center mb-6 drop-shadow-lg"> Spirit Team Tracker </h1> <div className="bg-white rounded-lg shadow-xl p-5 mb-6"> <h2 className="text-xl font-bold mb-4 text-gray-800">Create Team</h2> <input type="text" placeholder="Team Name" value={currentTeam.name} onChange={(e) => setCurrentTeam({ ...currentTeam, name: e.target.value })} className="w-full p-3 border-2 border-gray-300 rounded-lg mb-4 focus:border-blue-500 focus:outline-none" /> <div className="bg-red-50 p-4 rounded-lg mb-4"> <h3 className="font-bold text-red-700 mb-3">Primary Spirit</h3> <input type="text" placeholder="Primary Spirit Name" value={currentTeam.primary.name} onChange={(e) => updatePrimary('name', e.target.value)} className="w-full p-2 border-2 border-red-200 rounded mb-3 focus:border-red-500 focus:outline-none" /> <div className="flex items-center gap-3"> <span className="text-sm font-medium text-gray-700">Slots:</span> {[1, 2, 3].map(num => ( <button key={num} onClick={() => { updatePrimary('slots', num); setCurrentTeam({ ...currentTeam, primary: { ...currentTeam.primary, slots: num }, supports: [] }); }} className={`px-4 py-2 rounded-lg font-bold ${ currentTeam.primary.slots === num ? 'bg-red-500 text-white' : 'bg-gray-200 text-gray-700' }`} > {num} </button> ))} </div> </div> <div className="bg-blue-50 p-4 rounded-lg mb-4"> <div className="flex justify-between items-center mb-3"> <h3 className="font-bold text-blue-700">Support Spirits</h3> <SlotIndicator total={currentTeam.primary.slots} used={getTotalSlotsUsed()} /> </div> {currentTeam.supports.map((support, index) => ( <div key={index} className="bg-white p-3 rounded-lg mb-2 border-2 border-blue-200"> <input type="text" placeholder="Support Spirit Name" value={support.name} onChange={(e) => updateSupport(index, 'name', e.target.value)} className="w-full p-2 border border-gray-300 rounded mb-2 focus:border-blue-500 focus:outline-none" /> <div className="flex items-center justify-between"> <div className="flex items-center gap-2"> <span className="text-sm font-medium text-gray-700">Slots:</span> {[1, 2, 3].map(num => ( <button key={num} onClick={() => updateSupport(index, 'slots', num)} disabled={getTotalSlotsUsed() - support.slots + num > currentTeam.primary.slots} className={`px-3 py-1 rounded font-bold text-sm ${ support.slots === num ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700 disabled:opacity-30' }`} > {num} </button> ))} </div> <button onClick={() => removeSupportSpirit(index)} className="text-red-500 p-1" > <Trash2 size={18} /> </button> </div> </div> ))} <button onClick={addSupportSpirit} disabled={!canAddSupport()} className="w-full py-2 bg-blue-500 text-white rounded-lg font-bold flex items-center justify-center gap-2 disabled:opacity-30 disabled:cursor-not-allowed mt-2" > <Plus size={18} /> Add Support Spirit </button> </div> <button onClick={saveTeam} disabled={!currentTeam.primary.name || !currentTeam.name} className="w-full py-3 bg-green-500 text-white rounded-lg font-bold flex items-center justify-center gap-2 disabled:opacity-30 disabled:cursor-not-allowed" > <Save size={20} /> Save Team </button> </div> {teams.length > 0 && ( <div className="bg-white rounded-lg shadow-xl p-5"> <h2 className="text-xl font-bold mb-4 text-gray-800">Saved Teams</h2> {teams.map(team => ( <div key={team.id} className="bg-gray-50 p-4 rounded-lg mb-3 border-2 border-gray-200"> <div className="flex justify-between items-start mb-3"> <h3 className="font-bold text-lg text-gray-800">{team.name}</h3> <button onClick={() => deleteTeam(team.id)} className="text-red-500" > <Trash2 size={20} /> </button> </div> <div className="bg-red-100 p-3 rounded mb-2"> <p className="font-bold text-red-700 text-sm mb-1">Primary</p> <p className="text-gray-800">{team.primary.name}</p> <SlotIndicator total={team.primary.slots} used={team.primary.slots} /> </div> {team.supports.length > 0 && ( <div className="bg-blue-100 p-3 rounded"> <p className="font-bold text-blue-700 text-sm mb-2">Supports</p> {team.supports.map((support, i) => ( <div key={i} className="flex justify-between items-center mb-1"> <p className="text-gray-800">{support.name}</p> <SlotIndicator total={support.slots} used={support.slots} /> </div> ))} </div> )} </div> ))} </div> )} </div> </div> ); }
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spirit Team Tracker</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+            background: linear-gradient(135deg, #ef4444 0%, #f97316 50%, #facc15 100%);
+            min-height: 100vh;
+            padding: 16px;
+        }
+
+        .container {
+            max-width: 480px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            font-size: 28px;
+            font-weight: bold;
+            color: white;
+            text-align: center;
+            margin-bottom: 24px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            padding: 20px;
+            margin-bottom: 24px;
+        }
+
+        h2 {
+            font-size: 20px;
+            font-weight: bold;
+            color: #1f2937;
+            margin-bottom: 16px;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 16px;
+            margin-bottom: 16px;
+            transition: border-color 0.2s;
+        }
+
+        input[type="text"]:focus {
+            outline: none;
+            border-color: #3b82f6;
+        }
+
+        .primary-section {
+            background: #fef2f2;
+            padding: 16px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+        }
+
+        .primary-section h3 {
+            color: #b91c1c;
+            font-weight: bold;
+            margin-bottom: 12px;
+        }
+
+        .primary-section input {
+            border-color: #fecaca;
+        }
+
+        .primary-section input:focus {
+            border-color: #ef4444;
+        }
+
+        .support-section {
+            background: #eff6ff;
+            padding: 16px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+        }
+
+        .support-section h3 {
+            color: #1e40af;
+            font-weight: bold;
+            margin-bottom: 12px;
+        }
+
+        .slot-controls {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-top: 12px;
+        }
+
+        .slot-controls span {
+            font-size: 14px;
+            font-weight: 500;
+            color: #4b5563;
+        }
+
+        .slot-btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            background: #e5e7eb;
+            color: #4b5563;
+            transition: all 0.2s;
+        }
+
+        .slot-btn.active {
+            background: #ef4444;
+            color: white;
+        }
+
+        .slot-btn.active.blue {
+            background: #3b82f6;
+        }
+
+        .slot-btn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        .support-item {
+            background: white;
+            padding: 12px;
+            border-radius: 8px;
+            border: 2px solid #bfdbfe;
+            margin-bottom: 8px;
+        }
+
+        .support-item input {
+            margin-bottom: 8px;
+        }
+
+        .support-controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .slot-indicator {
+            display: flex;
+            gap: 4px;
+        }
+
+        .slot-box {
+            width: 24px;
+            height: 24px;
+            border-radius: 4px;
+            background: #d1d5db;
+        }
+
+        .slot-box.filled {
+            background: #3b82f6;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 16px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: all 0.2s;
+        }
+
+        .btn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        .btn-primary {
+            background: #3b82f6;
+            color: white;
+            margin-top: 8px;
+        }
+
+        .btn-success {
+            background: #22c55e;
+            color: white;
+        }
+
+        .btn-danger {
+            background: #ef4444;
+            color: white;
+            padding: 4px 8px;
+            width: auto;
+            font-size: 14px;
+        }
+
+        .saved-team {
+            background: #f9fafb;
+            padding: 16px;
+            border-radius: 8px;
+            border: 2px solid #e5e7eb;
+            margin-bottom: 12px;
+        }
+
+        .saved-team-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 12px;
+        }
+
+        .saved-team h3 {
+            font-size: 18px;
+            font-weight: bold;
+            color: #1f2937;
+        }
+
+        .team-primary {
+            background: #fee2e2;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 8px;
+        }
+
+        .team-primary p:first-child {
+            font-weight: bold;
+            color: #b91c1c;
+            font-size: 12px;
+            margin-bottom: 4px;
+        }
+
+        .team-supports {
+            background: #dbeafe;
+            padding: 12px;
+            border-radius: 8px;
+        }
+
+        .team-supports > p:first-child {
+            font-weight: bold;
+            color: #1e40af;
+            font-size: 12px;
+            margin-bottom: 8px;
+        }
+
+        .support-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 4px;
+        }
+
+        .header-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Spirit Team Tracker</h1>
+
+        <div class="card">
+            <h2>Create Team</h2>
+            
+            <input type="text" id="teamName" placeholder="Team Name">
+
+            <div class="primary-section">
+                <h3>Primary Spirit</h3>
+                <input type="text" id="primaryName" placeholder="Primary Spirit Name">
+                <div class="slot-controls">
+                    <span>Slots:</span>
+                    <button class="slot-btn active" onclick="setPrimarySlots(1)">1</button>
+                    <button class="slot-btn" onclick="setPrimarySlots(2)">2</button>
+                    <button class="slot-btn" onclick="setPrimarySlots(3)">3</button>
+                </div>
+            </div>
+
+            <div class="support-section">
+                <div class="header-row">
+                    <h3>Support Spirits</h3>
+                    <div class="slot-indicator" id="slotIndicator"></div>
+                </div>
+                <div id="supportsList"></div>
+                <button class="btn btn-primary" onclick="addSupport()">+ Add Support Spirit</button>
+            </div>
+
+            <button class="btn btn-success" onclick="saveTeam()">💾 Save Team</button>
+        </div>
+
+        <div class="card" id="savedTeamsCard">
+            <h2>Saved Teams</h2>
+            <div id="savedTeamsList"></div>
+        </div>
+    </div>
+
+    <script>
+        let currentTeam = {
+            name: '',
+            primary: { name: '', slots: 1 },
+            supports: []
+        };
+
+        let teams = [];
+
+        // Load teams from localStorage
+        function loadTeams() {
+            const saved = localStorage.getItem('spirit-teams');
+            if (saved) {
+                teams = JSON.parse(saved);
+                renderSavedTeams();
+            }
+        }
+
+        // Save teams to localStorage
+        function saveTeamsToStorage() {
+            localStorage.setItem('spirit-teams', JSON.stringify(teams));
+        }
+
+        function setPrimarySlots(slots) {
+            currentTeam.primary.slots = slots;
+            currentTeam.supports = [];
+            
+            document.querySelectorAll('.primary-section .slot-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            renderSupports();
+            updateSlotIndicator();
+        }
+
+        function addSupport() {
+            if (currentTeam.supports.length < 3 && getTotalSlotsUsed() < currentTeam.primary.slots) {
+                currentTeam.supports.push({ name: '', slots: 1 });
+                renderSupports();
+                updateSlotIndicator();
+            }
+        }
+
+        function removeSupport(index) {
+            currentTeam.supports.splice(index, 1);
+            renderSupports();
+            updateSlotIndicator();
+        }
+
+        function setSupportSlots(index, slots) {
+            currentTeam.supports[index].slots = slots;
+            renderSupports();
+            updateSlotIndicator();
+        }
+
+        function getTotalSlotsUsed() {
+            return currentTeam.supports.reduce((sum, s) => sum + s.slots, 0);
+        }
+
+        function updateSlotIndicator() {
+            const indicator = document.getElementById('slotIndicator');
+            const total = currentTeam.primary.slots;
+            const used = getTotalSlotsUsed();
+            
+            indicator.innerHTML = '';
+            for (let i = 0; i < total; i++) {
+                const box = document.createElement('div');
+                box.className = 'slot-box' + (i < used ? ' filled' : '');
+                indicator.appendChild(box);
+            }
+        }
+
+        function renderSupports() {
+            const list = document.getElementById('supportsList');
+            list.innerHTML = '';
+            
+            currentTeam.supports.forEach((support, index) => {
+                const div = document.createElement('div');
+                div.className = 'support-item';
+                
+                const slotsUsed = getTotalSlotsUsed();
+                const currentSlots = support.slots;
+                
+                div.innerHTML = `
+                    <input type="text" placeholder="Support Spirit Name" value="${support.name}" 
+                           onchange="currentTeam.supports[${index}].name = this.value">
+                    <div class="support-controls">
+                        <div class="slot-controls">
+                            <span>Slots:</span>
+                            <button class="slot-btn ${support.slots === 1 ? 'active blue' : ''}" 
+                                    onclick="setSupportSlots(${index}, 1)">1</button>
+                            <button class="slot-btn ${support.slots === 2 ? 'active blue' : ''}" 
+                                    onclick="setSupportSlots(${index}, 2)"
+                                    ${slotsUsed - currentSlots + 2 > currentTeam.primary.slots ? 'disabled' : ''}>2</button>
+                            <button class="slot-btn ${support.slots === 3 ? 'active blue' : ''}" 
+                                    onclick="setSupportSlots(${index}, 3)"
+                                    ${slotsUsed - currentSlots + 3 > currentTeam.primary.slots ? 'disabled' : ''}>3</button>
+                        </div>
+                        <button class="btn-danger" onclick="removeSupport(${index})">🗑️</button>
+                    </div>
+                `;
+                list.appendChild(div);
+            });
+        }
+
+        function saveTeam() {
+            const teamName = document.getElementById('teamName').value;
+            const primaryName = document.getElementById('primaryName').value;
+            
+            if (!teamName || !primaryName) {
+                alert('Please enter team name and primary spirit name');
+                return;
+            }
+            
+            teams.push({
+                id: Date.now(),
+                name: teamName,
+                primary: { 
+                    name: primaryName, 
+                    slots: currentTeam.primary.slots 
+                },
+                supports: [...currentTeam.supports]
+            });
+            
+            saveTeamsToStorage();
+            renderSavedTeams();
+            
+            // Reset form
+            document.getElementById('teamName').value = '';
+            document.getElementById('primaryName').value = '';
+            currentTeam = {
+                name: '',
+                primary: { name: '', slots: 1 },
+                supports: []
+            };
+            renderSupports();
+            updateSlotIndicator();
+        }
+
+        function deleteTeam(id) {
+            if (confirm('Delete this team?')) {
+                teams = teams.filter(t => t.id !== id);
+                saveTeamsToStorage();
+                renderSavedTeams();
+            }
+        }
+
+        function renderSavedTeams() {
+            const list = document.getElementById('savedTeamsList');
+            const card = document.getElementById('savedTeamsCard');
+            
+            if (teams.length === 0) {
+                card.classList.add('hidden');
+                return;
+            }
+            
+            card.classList.remove('hidden');
+            list.innerHTML = '';
+            
+            teams.forEach(team => {
+                const div = document.createElement('div');
+                div.className = 'saved-team';
+                
+                let supportsHTML = '';
+                if (team.supports.length > 0) {
+                    const supportRows = team.supports.map(s => {
+                        const slots = Array(s.slots).fill(0).map(() => '<div class="slot-box filled"></div>').join('');
+                        return `
+                            <div class="support-row">
+                                <p style="color: #1f2937;">${s.name}</p>
+                                <div class="slot-indicator">${slots}</div>
+                            </div>
+                        `;
+                    }).join('');
+                    
+                    supportsHTML = `
+                        <div class="team-supports">
+                            <p>Supports</p>
+                            ${supportRows}
+                        </div>
+                    `;
+                }
+                
+                const primarySlots = Array(team.primary.slots).fill(0).map(() => '<div class="slot-box filled"></div>').join('');
+                
+                div.innerHTML = `
+                    <div class="saved-team-header">
+                        <h3>${team.name}</h3>
+                        <button class="btn-danger" onclick="deleteTeam(${team.id})">🗑️</button>
+                    </div>
+                    <div class="team-primary">
+                        <p>Primary</p>
+                        <p style="color: #1f2937; margin-bottom: 4px;">${team.primary.name}</p>
+                        <div class="slot-indicator">${primarySlots}</div>
+                    </div>
+                    ${supportsHTML}
+                `;
+                list.appendChild(div);
+            });
+        }
+
+        // Initialize
+        loadTeams();
+        updateSlotIndicator();
+    </script>
+</body>
+</html>
